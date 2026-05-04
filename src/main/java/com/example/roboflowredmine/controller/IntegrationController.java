@@ -1,25 +1,29 @@
 package com.example.roboflowredmine.controller;
 
+import com.example.roboflowredmine.dto.InferenceResultDTO;
 import com.example.roboflowredmine.model.ProjectMapping;
 import com.example.roboflowredmine.repository.ProjectMappingRepository;
 import com.example.roboflowredmine.service.RedmineService;
+import com.example.roboflowredmine.service.RoboflowDatasetService;
 import com.example.roboflowredmine.service.RoboflowService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
-@Controller
+@RestController
 public class IntegrationController {
 
+   
     @Autowired
     private RoboflowService roboflowService;
+
+    @Autowired
+    private RoboflowDatasetService datasetService;
 
     @Autowired
     private RedmineService redmineService;
@@ -27,68 +31,152 @@ public class IntegrationController {
     @Autowired
     private ProjectMappingRepository mappingRepo;
 
-    @GetMapping("/")
-    public String index(Model model) {
-        model.addAttribute("mappings", mappingRepo.findAll());
-        return "index";
+    @PostMapping("/link")
+    public ResponseEntity<?> linkProject(
+            @RequestParam String roboflowProject,
+            @RequestParam Integer redmineProjectId) {
+
+        ProjectMapping mapping =
+                new ProjectMapping(roboflowProject, redmineProjectId);
+
+        mappingRepo.save(mapping);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message", "Project linked",
+                        "roboflowProject", roboflowProject,
+                        "redmineProjectId", redmineProjectId
+                )
+        );
     }
 
-    @PostMapping("/link")
-    public String linkProject(@RequestParam String roboflowProject,
-                              @RequestParam Integer redmineProjectId,
-                              RedirectAttributes ra) {
-        ProjectMapping mapping = new ProjectMapping(roboflowProject, redmineProjectId);
-        mappingRepo.save(mapping);
-        ra.addFlashAttribute("message", "Povezan projekat: " + roboflowProject);
-        return "redirect:/";
-    }
 
     @PostMapping("/infer")
-    public String infer(@RequestParam("imageFile") MultipartFile imageFile,
-                        @RequestParam(required = false) String imageUrl,
-                        @RequestParam(required = false) String modelId,
-                        @RequestParam String roboflowProject,
-                        RedirectAttributes ra) {
+    public ResponseEntity<?> infer(
+            @RequestParam("imageFile") MultipartFile imageFile,
+            @RequestParam String roboflowProject,
+            @RequestParam(required = false) String modelId) {
+
         try {
-            JsonNode predictions;
+           
+            String base64 = roboflowService.fileToBase64(imageFile);
+
             
-            if (imageFile != null && !imageFile.isEmpty()) {
-                byte[] imageBytes = imageFile.getBytes();
-                String base64Image = Base64.getEncoder().encodeToString(imageBytes);
-                predictions = roboflowService.runWorkflow(base64Image);
-            } else if (imageUrl != null && !imageUrl.isEmpty()) {
-                predictions = roboflowService.runWorkflow(imageUrl);
-            } else {
-                throw new RuntimeException("Morate uneti ili upload slike ili URL slike");
+            JsonNode raw = roboflowService.runWorkflow(base64);
+
+          
+            InferenceResultDTO dto = roboflowService.parse(raw);
+
+           
+            List<ProjectMapping> mappings =
+                    mappingRepo.findByRoboflowProject(roboflowProject);
+
+            if (mappings.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Project not linked"));
             }
 
-            List<ProjectMapping> mappings = mappingRepo.findByRoboflowProject(roboflowProject);
-            if (mappings.isEmpty()) {
-                throw new RuntimeException("Projekat nije povezan: " + roboflowProject);
-            }
             ProjectMapping mapping = mappings.get(0);
 
-            String subject = "Inference: " + (imageFile != null ? imageFile.getOriginalFilename() : imageUrl);
-            String description = predictions.toPrettyString();
-            Integer issueId = redmineService.createIssue(mapping.getRedmineProjectId(), subject, description);
+           
+            Integer issueId = redmineService.createFromInference(
+                    dto,
+                    modelId != null ? modelId : "model-1",
+                    mapping.getRedmineProjectId()
+            );
 
-            ra.addFlashAttribute("message", "Kreiran Redmine zadatak #" + issueId);
-            ra.addFlashAttribute("predictions", description);
+          
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message", "OK",
+                            "issueId", issueId,
+                            "detections", dto.predictions,
+                            "image", "data:image/jpeg;base64," + base64
+                    )
+            );
+
         } catch (Exception e) {
-            ra.addFlashAttribute("error", "Greška: " + e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", e.getMessage()));
         }
-        return "redirect:/";
+    }
+
+
+    @PostMapping("/export")
+    public ResponseEntity<?> export(@RequestBody JsonNode inferenceResult) {
+        return ResponseEntity.ok(inferenceResult);
+    }
+
+
+    @GetMapping("/test-redmine")
+    public ResponseEntity<?> testRedmine() {
+
+        try {
+            Integer id = redmineService.createIssue(
+                    1,
+                    "Test issue",
+                    "This is a test from system"
+            );
+
+            return ResponseEntity.ok(
+                    Map.of("message", "Success", "issueId", id)
+            );
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+   
+    @GetMapping("/mappings")
+    public ResponseEntity<?> getMappings() {
+        return ResponseEntity.ok(mappingRepo.findAll());
+    }
+
+
+  
+    @GetMapping("/projects")
+    public ResponseEntity<?> getProjects() throws Exception {
+        return ResponseEntity.ok(datasetService.getProjects());
+    }
+
+   
+    @GetMapping("/projects/{id}")
+    public ResponseEntity<?> getProject(@PathVariable String id) throws Exception {
+        return ResponseEntity.ok(datasetService.getProjectDetails(id));
     }
 
     
-    @GetMapping("/test-redmine")
-    @ResponseBody
-    public String testRedmine() {
-        try {
-            Integer id = redmineService.createIssue(1, "Test from app", "Test description");
-            return "Uspeh: Kreiran zadatak ID " + id;
-        } catch (Exception e) {
-            return "Greška: " + e.getMessage();
-        }
+    @GetMapping("/projects/{id}/versions")
+    public ResponseEntity<?> getVersions(@PathVariable String id) throws Exception {
+        return ResponseEntity.ok(datasetService.getVersions(id));
+    }
+
+    
+    @PostMapping("/projects/{id}/versions")
+    public ResponseEntity<?> createVersion(@PathVariable String id) throws Exception {
+        return ResponseEntity.ok(datasetService.createVersion(id));
+    }
+
+    @PostMapping("/projects/{id}/images")
+    public ResponseEntity<?> uploadImage(
+            @PathVariable String id,
+            @RequestParam("file") MultipartFile file) throws Exception {
+
+        String base64 = roboflowService.fileToBase64(file);
+
+        return ResponseEntity.ok(
+                datasetService.uploadImage(id, base64)
+        );
+    }
+
+ 
+    @GetMapping("/projects/{id}/images")
+    public ResponseEntity<?> listImages(@PathVariable String id) throws Exception {
+
+        return ResponseEntity.ok(
+                datasetService.listImages(id)
+        );
     }
 }

@@ -1,7 +1,13 @@
-C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\service\RoboflowService.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\dto\DatasetVersionDTO.java
 C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\service\RedmineService.java
-C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\config\RestTemplateConfig.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\dto\RoboflowProjectDTO.java
 C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\controller\IntegrationController.java
 C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\RoboflowRedmineApplication.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\dto\InferenceResultDTO.java
 C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\repository\ProjectMappingRepository.java
 C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\model\ProjectMapping.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\dto\PredictionDTO.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\test\TestRoboflow.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\service\RoboflowService.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\config\RestTemplateConfig.java
+C:\Users\Acim\eclipse-workspace\roboflow-redmine\src\main\java\com\example\roboflowredmine\service\RoboflowDatasetService.java

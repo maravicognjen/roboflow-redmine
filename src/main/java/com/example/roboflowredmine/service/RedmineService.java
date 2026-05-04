@@ -1,5 +1,7 @@
 package com.example.roboflowredmine.service;
 
+import com.example.roboflowredmine.dto.InferenceResultDTO;
+import com.example.roboflowredmine.dto.PredictionDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,5 +46,34 @@ public class RedmineService {
 
         JsonNode root = objectMapper.readTree(response.getBody());
         return root.path("issue").path("id").asInt();
+    }
+    public Integer createFromInference(
+            InferenceResultDTO result,
+            String modelName,
+            Integer projectId
+    ) throws Exception {
+
+        String title = "Detection: " +
+                result.predictions.stream()
+                        .map(p -> p.clazz)
+                        .distinct()
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("unknown");
+
+        StringBuilder desc = new StringBuilder();
+
+        desc.append("Model: ").append(modelName).append("\n");
+        desc.append("Total detections: ")
+            .append(result.predictions.size())
+            .append("\n\n");
+
+        for (PredictionDTO p : result.predictions) {
+            desc.append(p.clazz)
+                    .append(" - ")
+                    .append(p.confidence)
+                    .append("\n");
+        }
+
+        return createIssue(projectId, title, desc.toString());
     }
 }
