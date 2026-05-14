@@ -1,0 +1,10 @@
+com\example\roboflowredmine\dto\DatasetVersionDTO.class
+com\example\roboflowredmine\model\ProjectMapping.class
+com\example\roboflowredmine\dto\InferenceResultDTO.class
+com\example\roboflowredmine\RoboflowRedmineApplication.class
+com\example\roboflowredmine\service\RedmineService.class
+com\example\roboflowredmine\controller\IntegrationController.class
+com\example\roboflowredmine\repository\ProjectMappingRepository.class
+com\example\roboflowredmine\dto\RoboflowProjectDTO.class
+com\example\roboflowredmine\dto\PredictionDTO.class
+com\example\roboflowredmine\service\RoboflowService.class

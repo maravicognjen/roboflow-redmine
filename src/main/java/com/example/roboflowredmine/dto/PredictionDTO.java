@@ -1,10 +1,16 @@
 package com.example.roboflowredmine.dto;
 
 public class PredictionDTO {
-	public double x;
-	public double y;
-	public double width;
-	public double height;
-	public String clazz;
-	public double confidence;
+
+    public String className;
+
+    public Double confidence;
+
+    public Double x;
+
+    public Double y;
+
+    public Double width;
+
+    public Double height;
 }

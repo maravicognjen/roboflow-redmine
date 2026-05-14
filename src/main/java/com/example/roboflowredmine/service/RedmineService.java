@@ -1,13 +1,15 @@
 package com.example.roboflowredmine.service;
 
 import com.example.roboflowredmine.dto.InferenceResultDTO;
-import com.example.roboflowredmine.dto.PredictionDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class RedmineService {
@@ -25,6 +27,7 @@ public class RedmineService {
         this.restTemplate = restTemplate;
     }
 
+ 
     public Integer createIssue(Integer projectId, String subject, String description) throws Exception {
         String url = redmineUrl + "/issues.json";
 
@@ -32,11 +35,16 @@ public class RedmineService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Redmine-API-Key", apiKey);
 
-        String jsonBody = String.format(
-            "{\"issue\":{\"project_id\":%d,\"subject\":\"%s\",\"description\":\"%s\"}}",
-            projectId, subject, description.replace("\"", "\\\"")
-        );
+        Map<String, Object> issue = new HashMap<>();
+        issue.put("project_id", projectId);
+        issue.put("subject", subject);
+        issue.put("description", description);
+        issue.put("tracker_id", 1);   // 1 = Bug (prilagodi svom Redmine-u)
 
+        Map<String, Object> body = new HashMap<>();
+        body.put("issue", issue);
+
+        String jsonBody = objectMapper.writeValueAsString(body);
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
         ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
@@ -47,33 +55,23 @@ public class RedmineService {
         JsonNode root = objectMapper.readTree(response.getBody());
         return root.path("issue").path("id").asInt();
     }
-    public Integer createFromInference(
-            InferenceResultDTO result,
-            String modelName,
-            Integer projectId
-    ) throws Exception {
 
-        String title = "Detection: " +
-                result.predictions.stream()
-                        .map(p -> p.clazz)
-                        .distinct()
-                        .reduce((a, b) -> a + ", " + b)
-                        .orElse("unknown");
+    
+    public Integer createFromInference(InferenceResultDTO dto, String modelId, Integer projectId) throws Exception {
+        StringBuilder subject = new StringBuilder("Inference: ");
+        subject.append(modelId).append(" | ").append(dto.count).append(" objects detected");
 
-        StringBuilder desc = new StringBuilder();
-
-        desc.append("Model: ").append(modelName).append("\n");
-        desc.append("Total detections: ")
-            .append(result.predictions.size())
-            .append("\n\n");
-
-        for (PredictionDTO p : result.predictions) {
-            desc.append(p.clazz)
-                    .append(" - ")
-                    .append(p.confidence)
+        StringBuilder description = new StringBuilder();
+        description.append("**Count objects:** ").append(dto.count).append("\n\n");
+        description.append("**Predictions:**\n");
+        for (var pred : dto.predictions) {
+            description.append("- ").append(pred.className)
+                    .append(" (conf: ").append(String.format("%.2f", pred.confidence)).append(")")
+                    .append(" at (").append(pred.x).append(",").append(pred.y).append(")")
+                    .append(" size ").append(pred.width).append("x").append(pred.height)
                     .append("\n");
         }
 
-        return createIssue(projectId, title, desc.toString());
+        return createIssue(projectId, subject.toString(), description.toString());
     }
 }
